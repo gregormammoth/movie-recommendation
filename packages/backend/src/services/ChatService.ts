@@ -4,22 +4,22 @@ import { User } from '../entities/User';
 import { ChatRoom } from '../entities/ChatRoom';
 import { Message, MessageType } from '../entities/Message';
 import { v4 as uuidv4 } from 'uuid';
-import OpenAI from 'openai';
+import { OpenAIService } from './OpenAIService';
 import { LangchainAIService } from './LangchainAIService';
+import { UserService } from './UserService';
 
 export class ChatService {
   private userRepository?: Repository<User>;
   private chatRoomRepository?: Repository<ChatRoom>;
   private messageRepository?: Repository<Message>;
-  private openai: OpenAI;
+  private openaiService: OpenAIService;
   private langchainAI: LangchainAIService;
+  private userService: UserService;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    
+    this.openaiService = new OpenAIService();
     this.langchainAI = new LangchainAIService();
+    this.userService = new UserService();
   }
 
   private getUserRepository(): Repository<User> {
@@ -44,18 +44,97 @@ export class ChatService {
   }
 
   async createUser(username: string, email?: string): Promise<User> {
-    const userRepo = this.getUserRepository();
-    const existingUser = await userRepo.findOne({ where: { username } });
-    if (existingUser) {
-      return existingUser;
+    // Use the new UserService for user creation, but maintain backward compatibility
+    const result = await this.userService.createUser({ username, email });
+    
+    if (result.success && result.user) {
+      // Fetch the full User entity to maintain compatibility
+      const userRepo = this.getUserRepository();
+      const user = await userRepo.findOne({ where: { id: result.user.id } });
+      return user!;
+    } else {
+      // For backward compatibility, if user already exists, return it
+      const userRepo = this.getUserRepository();
+      const existingUser = await userRepo.findOne({ where: { username } });
+      if (existingUser) {
+        return existingUser;
+      }
+      throw new Error(`Failed to create user: ${result.errors?.map(e => e.message).join(', ')}`);
     }
+  }
 
-    const user = userRepo.create({
-      username,
-      email,
-    });
+  /**
+   * Ensures the AI assistant user exists in the database
+   */
+  async ensureAIAssistantUser(): Promise<User> {
+    const userRepo = this.getUserRepository();
+    
+    // Check if AI assistant user already exists
+    let aiUser = await userRepo.findOne({ where: { username: 'ai-assistant' } });
+    
+    if (!aiUser) {
+      // Create the AI assistant user
+      try {
+        console.log('Creating AI Assistant user...');
+        const result = await this.userService.createUser({ 
+          username: 'ai-assistant',
+          email: 'ai@vibe-coding.com'
+        });
+        
+        if (result.success && result.user) {
+          aiUser = await userRepo.findOne({ where: { id: result.user.id } });
+          console.log('AI Assistant user created successfully:', result.user.id);
+          
+          // Migrate any existing AI messages that might have the old string userId
+          await this.migrateAIMessages(result.user.id);
+        } else {
+          throw new Error('Failed to create AI assistant user');
+        }
+      } catch (error) {
+        console.error('Error creating AI assistant user:', error);
+        // Fallback: create directly with repository if UserService fails
+        aiUser = userRepo.create({
+          username: 'ai-assistant',
+          email: 'ai@vibe-coding.com',
+        });
+        aiUser = await userRepo.save(aiUser);
+        console.log('AI Assistant user created via fallback method:', aiUser.id);
+        
+        // Migrate any existing AI messages
+        await this.migrateAIMessages(aiUser.id);
+      }
+    }
+    
+    return aiUser!;
+  }
 
-    return await userRepo.save(user);
+  /**
+   * Migrates any existing AI messages that might have the old 'ai-assistant' string as userId
+   */
+  private async migrateAIMessages(aiUserId: string): Promise<void> {
+    try {
+      const messageRepo = this.getMessageRepository();
+      
+      // Find messages with the old 'ai-assistant' string userId
+      const oldAIMessages = await messageRepo.find({
+        where: { userId: 'ai-assistant', type: MessageType.AI }
+      });
+      
+      if (oldAIMessages.length > 0) {
+        console.log(`Migrating ${oldAIMessages.length} AI messages to new user ID...`);
+        
+        // Update each message to use the proper AI user ID
+        for (const message of oldAIMessages) {
+          message.userId = aiUserId;
+        }
+        
+        await messageRepo.save(oldAIMessages);
+        console.log('AI messages migration completed successfully');
+      }
+    } catch (error) {
+      console.error('Error migrating AI messages:', error);
+      // Don't throw error as this is not critical for app functionality
+    }
   }
 
   async createChatRoom(userId: string, name: string, description?: string): Promise<ChatRoom> {
@@ -106,6 +185,8 @@ export class ChatService {
 
   async generateAIResponse(userMessage: string, chatHistory: Message[]): Promise<string> {
     // Try Langchain with Groq first if configured
+    console.log('Langchain AI service configured:', this.langchainAI.isConfigured());
+    console.log('OpenAI service configured:', this.openaiService.isAvailable());
     if (this.langchainAI.isConfigured()) {
       try {
         console.log('Using Langchain AI service with Groq...');
@@ -116,52 +197,17 @@ export class ChatService {
     }
 
     // Fallback to OpenAI
-    try {
-      console.log('Using OpenAI service...');
-      const messages = [
-        {
-          role: 'system' as const,
-          content: `You are a helpful movie recommendation assistant with deep knowledge of cinema across all genres, eras, and cultures. 
-          Your role is to provide personalized, insightful movie recommendations based on user preferences.
-
-          Guidelines for your responses:
-          - Always provide specific movie titles with release years
-          - Include brief, compelling descriptions that highlight what makes each movie special
-          - Consider the user's mood, preferences, and previous conversation context
-          - Suggest 2-4 movies per response unless asked for more
-          - Include diverse options when possible (different genres, eras, countries)
-          - Be conversational and enthusiastic about movies
-          - Ask follow-up questions to better understand preferences
-
-          Format your recommendations clearly with:
-          - **Movie Title (Year)** - Brief description
-          - Include director for notable films
-          - Mention key actors if relevant
-          - Explain why it fits their request`
-        },
-        ...chatHistory.slice(-10).map(msg => ({
-          role: msg.type === MessageType.USER ? 'user' as const : 'assistant' as const,
-          content: msg.content
-        })),
-        {
-          role: 'user' as const,
-          content: userMessage
-        }
-      ];
-
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages,
-        max_tokens: 500,
-        temperature: 0.7,
-      });
-
-      return response.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
-    } catch (error) {
-      console.error('Error generating AI response with OpenAI:', error);
+    if (this.openaiService.isAvailable()) {
+      try {
+        console.log('Using OpenAI service...');
+        return await this.openaiService.generateMovieRecommendation(userMessage, chatHistory);
+      } catch (error) {
+        console.error('Error generating AI response with OpenAI:', error);
+      }
+    }
       
-      // Final fallback response
-      return `I'm sorry, I'm having trouble connecting to my AI services right now. Here are some popular movie recommendations:
+    // Final fallback response
+    return `I'm sorry, I'm having trouble connecting to my AI services right now. Here are some popular movie recommendations:
 
 **The Shawshank Redemption (1994)** - A powerful story of hope and friendship
 **Inception (2010)** - Mind-bending sci-fi thriller by Christopher Nolan  
@@ -169,13 +215,12 @@ export class ChatService {
 **Parasite (2019)** - Brilliant Korean thriller about class and society
 
 What type of movies do you usually enjoy?`;
-    }
   }
 
   // Get AI service status for debugging
   getAIServiceStatus(): { langchain: boolean; openai: boolean; activeService: string } {
     const langchainConfigured = this.langchainAI.isConfigured();
-    const openaiConfigured = !!process.env.OPENAI_API_KEY;
+    const openaiConfigured = this.openaiService.isAvailable();
     
     let activeService = 'none';
     if (langchainConfigured) activeService = 'langchain-groq';

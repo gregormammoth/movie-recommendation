@@ -59,12 +59,20 @@ npm install
 ```
 
 3. Set up environment variables:
-- Create `.env` files in both frontend and backend packages
-- Add required API keys and configuration
+- Copy `packages/backend/env.example` to `packages/backend/.env`
+- Add your OpenAI API key to the `OPENAI_API_KEY` variable
+- Optionally add your Groq API key to the `GROQ_API_KEY` variable
+- Update database configuration if needed
 
 4. Start the development environment:
 ```bash
 npm run dev
+```
+
+**Note:** The AI assistant user will be automatically created when the server starts. If you need to manually initialize it, you can run:
+```bash
+cd packages/backend
+npm run init-ai-user
 ```
 
 ## Development
@@ -96,10 +104,18 @@ npm run dev
 
 ### Chat System
 - **Real-time messaging** with Socket.IO
-- **AI-powered movie recommendations** using OpenAI GPT-3.5
+- **AI-powered movie recommendations** using OpenAI GPT-3.5 and Groq
 - **Multi-room chat support**
 - **Message persistence** with PostgreSQL
 - **RESTful API** for chat operations
+- **Configurable AI services** with fallback support
+
+### User Management
+- **Comprehensive user creation** with real-time validation
+- **Username availability checking** with debounced API calls
+- **Professional UX** with loading states and error handling
+- **Client & server-side validation** for data integrity
+- **User account management** with soft delete support
 
 ### API Endpoints
 
@@ -107,7 +123,22 @@ npm run dev
 - `GET /rooms/:userId` - Get user's chat rooms
 - `POST /rooms` - Create new chat room
 - `GET /rooms/:roomId/messages` - Get room messages
-- `POST /users` - Create new user
+
+#### User Management API (`/api/users`)
+- `POST /` - Create a new user
+- `GET /:id` - Get user by ID
+- `PUT /:id` - Update user information
+- `DELETE /:id` - Deactivate user (soft delete)
+- `POST /:id/reactivate` - Reactivate user
+- `GET /` - Get all users with pagination
+- `GET /username/:username` - Get user by username
+- `GET /email/:email` - Get user by email
+- `GET /check/username/:username` - Check username availability
+- `GET /check/email/:email` - Check email availability
+
+#### AI Status API
+- `GET /api/ai-status` - Get overall AI service status
+- `GET /api/openai-status` - Get OpenAI service status and API key validation
 
 ### WebSocket Events
 

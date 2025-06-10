@@ -21,7 +21,11 @@ import {
   Drawer,
   IconButton,
   Chip,
-  Fab
+  Fab,
+  CircularProgress,
+  Alert,
+  AlertTitle,
+  InputAdornment
 } from '@mui/material';
 import { 
   Menu as MenuIcon, 
@@ -32,6 +36,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { socketService } from './services/socketService';
 import type { ChatRoom as ChatRoomType } from './services/socketService';
+import { userService, type UserValidationError } from './services/userService';
+import { useUserValidation } from './hooks/useUserValidation';
 import ChatRoom from './components/ChatRoom';
 
 const theme = createTheme({
@@ -68,6 +74,20 @@ function App() {
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDescription, setNewRoomDescription] = useState('');
   const [isUsernameDialogOpen, setIsUsernameDialogOpen] = useState(!username);
+  
+  // User creation states
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [userCreationErrors, setUserCreationErrors] = useState<UserValidationError[]>([]);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  
+  // Use the validation hook for real-time username checking
+  const { 
+    errors: validationErrors, 
+    isChecking: isCheckingUsername, 
+    isAvailable, 
+    validateUsername, 
+    clearErrors: clearValidationErrors 
+  } = useUserValidation();
 
   // Save user data to localStorage
   useEffect(() => {
@@ -115,9 +135,59 @@ function App() {
     };
   }, [username, currentUserId, selectedRoom]);
 
-  const handleSetUsername = () => {
-    if (username.trim()) {
-      setIsUsernameDialogOpen(false);
+  const handleSetUsername = async () => {
+    if (!username.trim()) return;
+
+    // Check if there are validation errors or username is not available
+    if (validationErrors.length > 0 || isAvailable === false) {
+      setUserCreationErrors(validationErrors);
+      return;
+    }
+
+    // Clear previous errors
+    setUserCreationErrors([]);
+    setIsCreatingUser(true);
+
+    try {
+      // Try to create the user
+      const result = await userService.createUser({
+        username: username.trim(),
+      });
+
+      if (result.success && result.data) {
+        // User created successfully
+        console.log('User created successfully:', result.data);
+        setShowSuccessMessage(true);
+        
+        // Store the backend user ID (keeping the existing currentUserId for socket compatibility)
+        localStorage.setItem('userId', result.data.id);
+        localStorage.setItem('username', result.data.username);
+        
+        // Close dialog after a brief success message
+        setTimeout(() => {
+          setIsUsernameDialogOpen(false);
+          setShowSuccessMessage(false);
+        }, 1500);
+        
+      } else {
+        // Handle validation errors from the backend
+        if (result.errors) {
+          setUserCreationErrors(result.errors);
+        } else {
+          setUserCreationErrors([{
+            field: 'general',
+            message: result.message || 'Failed to create user'
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setUserCreationErrors([{
+        field: 'general',
+        message: 'Network error. Please check your connection and try again.'
+      }]);
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -142,6 +212,34 @@ function App() {
             <Typography variant="body1" sx={{ mb: 2 }}>
               Enter your username to start chatting with our AI movie recommendation assistant.
             </Typography>
+            
+            {/* Success Message */}
+            {showSuccessMessage && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                <AlertTitle>Success!</AlertTitle>
+                User created successfully. Starting your chat experience...
+              </Alert>
+            )}
+            
+            {/* Error Messages */}
+            {(userCreationErrors.length > 0 || validationErrors.length > 0) && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <AlertTitle>Please fix the following errors:</AlertTitle>
+                {[...userCreationErrors, ...validationErrors].map((error, index) => (
+                  <Typography key={index} variant="body2">
+                    • {error.message}
+                  </Typography>
+                ))}
+              </Alert>
+            )}
+            
+            {/* Username Available Message */}
+            {isAvailable === true && username.trim() && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Username "{username.trim()}" is available!
+              </Alert>
+            )}
+            
             <TextField
               autoFocus
               margin="dense"
@@ -149,17 +247,53 @@ function App() {
               fullWidth
               variant="outlined"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSetUsername()}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                // Clear previous errors and validate in real-time
+                setUserCreationErrors([]);
+                clearValidationErrors();
+                if (e.target.value.trim()) {
+                  validateUsername(e.target.value.trim());
+                }
+              }}
+              onKeyPress={(e) => e.key === 'Enter' && !isCreatingUser && !isCheckingUsername && handleSetUsername()}
+              disabled={isCreatingUser || showSuccessMessage}
+              error={
+                userCreationErrors.some(err => err.field === 'username') ||
+                validationErrors.some(err => err.field === 'username') ||
+                isAvailable === false
+              }
+              helperText={
+                userCreationErrors.find(err => err.field === 'username')?.message ||
+                validationErrors.find(err => err.field === 'username')?.message ||
+                (isCheckingUsername ? "Checking availability..." : 
+                 isAvailable === true ? "✓ Username is available" :
+                 isAvailable === false ? "Username is already taken" :
+                 "2-50 characters, letters, numbers, underscores, and dashes only")
+              }
+              InputProps={{
+                endAdornment: isCheckingUsername ? <CircularProgress size={20} /> : null
+              }}
             />
           </DialogContent>
           <DialogActions>
             <Button 
               onClick={handleSetUsername} 
               variant="contained"
-              disabled={!username.trim()}
+              disabled={
+                !username.trim() || 
+                isCreatingUser || 
+                showSuccessMessage || 
+                isCheckingUsername ||
+                validationErrors.length > 0 ||
+                isAvailable === false
+              }
+              startIcon={isCreatingUser ? <CircularProgress size={20} color="inherit" /> : null}
             >
-              Start Chatting
+              {isCreatingUser ? 'Creating User...' : 
+               showSuccessMessage ? 'Success!' : 
+               isCheckingUsername ? 'Checking...' :
+               'Start Chatting'}
             </Button>
           </DialogActions>
         </Dialog>

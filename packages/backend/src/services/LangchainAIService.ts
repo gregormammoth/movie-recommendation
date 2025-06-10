@@ -10,7 +10,7 @@ export class LangchainAIService {
   constructor() {
     this.model = new ChatGroq({
       apiKey: process.env.GROQ_API_KEY,
-      model: 'mixtral-8x7b-32768', // You can also use 'llama2-70b-4096' or other available models
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       temperature: 0.7,
       maxTokens: 1000,
     });

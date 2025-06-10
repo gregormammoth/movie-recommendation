@@ -50,22 +50,4 @@ router.get('/rooms/:roomId/messages', async (req, res) => {
   }
 });
 
-// Create a user
-router.post('/users', async (req, res) => {
-  try {
-    const { username, email } = req.body;
-    
-    if (!username) {
-      return res.status(400).json({ error: 'username is required' });
-    }
-
-    const chatService = getChatService();
-    const user = await chatService.createUser(username, email);
-    res.status(201).json(user);
-  } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'Failed to create user' });
-  }
-});
-
 export default router; 

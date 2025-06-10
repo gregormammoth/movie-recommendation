@@ -100,8 +100,11 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
         const chatHistory = await chatService.getChatRoomMessages(roomId);
         const aiResponse = await chatService.generateAIResponse(content, chatHistory);
         
+        // Ensure AI assistant user exists before saving message
+        const aiUser = await chatService.ensureAIAssistantUser();
+        
         // Save AI message
-        const aiMessage = await chatService.saveMessage('ai-assistant', roomId, aiResponse, MessageType.AI);
+        const aiMessage = await chatService.saveMessage(aiUser.id, roomId, aiResponse, MessageType.AI);
         
         // Emit AI response to room
         setTimeout(() => {
@@ -109,8 +112,8 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
             id: aiMessage.id,
             content: aiMessage.content,
             type: aiMessage.type,
-            userId: 'ai-assistant',
-            username: 'AI Assistant',
+            userId: aiUser.id,
+            username: aiUser.username,
             createdAt: aiMessage.createdAt.toISOString(),
           });
         }, 1000); // Add slight delay for more natural feel
@@ -169,7 +172,7 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
           content: message.content,
           type: message.type,
           userId: message.userId,
-          username: message.user?.username || 'Unknown User',
+          username: message.user?.username || (message.type === MessageType.AI ? 'AI Assistant' : 'Unknown User'),
           createdAt: message.createdAt.toISOString(),
         })));
       } catch (error) {
