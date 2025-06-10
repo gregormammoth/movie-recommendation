@@ -36,8 +36,40 @@ vibe-coding/
 
 ## Getting Started
 
-### Prerequisites
+You can run this application in two ways: using Docker (recommended) or manually setting up the development environment.
 
+### Option 1: Docker Setup (Recommended)
+
+The easiest way to get started is using Docker. This handles all dependencies and database setup automatically.
+
+#### Prerequisites
+- Docker (version 20.10 or higher)
+- Docker Compose (version 2.0 or higher)
+
+#### Quick Start
+```bash
+# Clone and navigate to project
+git clone [repository-url]
+cd vibe-coding
+
+# Set up environment variables
+cp docker.env.example .env
+# Edit .env and add your API keys
+
+# Start the application
+docker-compose up -d
+```
+
+**Access the application:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- Database: localhost:5432
+
+For detailed Docker instructions, see [DOCKER.md](DOCKER.md).
+
+### Option 2: Manual Development Setup
+
+#### Prerequisites
 - Node.js (v18 or higher)
 - npm or yarn
 - Docker and Docker Compose
@@ -45,7 +77,7 @@ vibe-coding/
 - TMDB API key
 - OpenAI API key
 
-### Installation
+#### Installation
 
 1. Clone the repository:
 ```bash
@@ -96,9 +128,16 @@ npm run init-ai-user
 
 ### Docker Commands
 
-- `npm run docker:up` - Start PostgreSQL and Redis containers
-- `npm run docker:down` - Stop and remove containers
+#### Production
+- `npm run docker:up` - Start all services in production mode
+- `npm run docker:down` - Stop and remove all containers
 - `npm run docker:logs` - View container logs
+- `npm run docker:build` - Rebuild and start containers
+
+#### Development
+- `npm run docker:dev` - Start all services in development mode with hot reload
+- `npm run docker:dev:down` - Stop development containers
+- `npm run docker:dev:logs` - View development container logs
 
 ## Features
 

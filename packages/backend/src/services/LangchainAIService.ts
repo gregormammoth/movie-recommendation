@@ -223,7 +223,9 @@ export class LangchainAIService {
         `)
         .join('\n');
 
-      console.log('movieData', movieData);
+      if (!movieData) {
+        return 'Sorry, no specific movies found in the database.';
+      }
 
       // Create the chain
       const chain = chatPrompt.pipe(this.model).pipe(this.outputParser);
@@ -232,7 +234,7 @@ export class LangchainAIService {
       const response = await chain.invoke({
         chatHistory: formattedHistory,
         userMessage: userMessage,
-        movieData: movieData || 'No specific movies found. Say that you are not able to find any movies for the user\'s request.'
+        movieData: movieData,
       });
 
       return response.trim();
