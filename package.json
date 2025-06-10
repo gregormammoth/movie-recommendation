@@ -1,0 +1,29 @@
+{
+  "name": "vibe-coding",
+  "version": "1.0.0",
+  "description": "A modern movie recommendation system with AI-powered search capabilities.",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "lerna run dev --parallel",
+    "build": "lerna run build",
+    "test": "lerna run test",
+    "clean": "lerna clean",
+    "start:frontend": "lerna run dev --scope=@vibe-coding/frontend",
+    "start:backend": "lerna run dev --scope=@vibe-coding/backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "lerna": "^8.2.2"
+  },
+  "volta": {
+    "node": "20.17.0"
+  }
+}
