@@ -1,218 +1,178 @@
-# Vibe Coding
+# Movie Recommendation Chat
 
-Поиск и рекомендация фильмов с помощью AI
-TMDB API - поиск кино
-PostgreSQL - сохранение переписки и данных пользователей
-Docker Compose - оркестрация
-Al - OpenAl API / Any Framework (e.g. langchain)
-Бэк/фронт - любой
+AI-powered movie recommendation system with real-time chat functionality.
 
-A modern movie recommendation system with AI-powered search capabilities.
+## Features
 
-## Overview
-
-This project is a monorepo containing a React frontend and Node.js + Express backend for a movie recommendation system. It uses TMDB API for movie data, PostgreSQL for data storage, and AI integration for enhanced recommendations.
+- **Real-time Chat**: Multi-room chat with Socket.IO
+- **AI Movie Recommendations**: Get personalized movie suggestions using OpenAI/Groq
+- **User Management**: Account creation with real-time validation
+- **Movie Search**: Powered by TMDB API
+- **Responsive UI**: Modern React interface with Material-UI
 
 ## Tech Stack
 
-- **Frontend**: React
-- **Backend**: Node.js + Express
+- **Frontend**: React + TypeScript + Material-UI
+- **Backend**: Node.js + Express + TypeORM
 - **Database**: PostgreSQL
-- **Movie API**: TMDB API
-- **AI Integration**: OpenAI API
-- **Containerization**: Docker Compose
-- **Package Management**: Lerna (Monorepo)
+- **Real-time**: Socket.IO
+- **AI**: OpenAI API + Groq API
+- **Movie Data**: TMDB API
+- **Deployment**: Docker + nginx
 
-## Project Structure
+## Quick Start
 
-```
-vibe-coding/
-├── packages/
-│   ├── frontend/          # React application
-│   └── backend/           # Node.js + Express server
-├── lerna.json            # Lerna configuration
-└── package.json          # Root package.json
-```
+### Prerequisites
+- Docker (v20.10+)
+- Docker Compose (v2.0+)
 
-## Getting Started
+### Setup
 
-You can run this application in two ways: using Docker (recommended) or manually setting up the development environment.
-
-### Option 1: Docker Setup (Recommended)
-
-The easiest way to get started is using Docker. This handles all dependencies and database setup automatically.
-
-#### Prerequisites
-- Docker (version 20.10 or higher)
-- Docker Compose (version 2.0 or higher)
-
-#### Quick Start
+1. **Clone the repository**
 ```bash
-# Clone and navigate to project
 git clone [repository-url]
-cd vibe-coding
+cd movie-recommendation
+```
 
-# Set up environment variables
+2. **Configure environment variables**
+```bash
 cp docker.env.example .env
-# Edit .env and add your API keys
+```
+Edit `.env` and add your API keys:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here  # Optional
+TMDB_API_KEY=your_tmdb_api_key_here      # Optional
+```
 
-# Start the application
+3. **Start the application**
+```bash
 docker-compose up -d
 ```
 
-**Access the application:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- Database: localhost:5432
+### Access the Application
 
-For detailed Docker instructions, see [DOCKER.md](DOCKER.md).
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Database**: localhost:5432
 
-### Option 2: Manual Development Setup
-
-#### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-- Docker and Docker Compose
-- PostgreSQL
-- TMDB API key
-- OpenAI API key
-
-#### Installation
-
-1. Clone the repository:
+### Stopping the Application
 ```bash
-git clone [repository-url]
-cd vibe-coding
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Set up environment variables:
-- Copy `packages/backend/env.example` to `packages/backend/.env`
-- Add your OpenAI API key to the `OPENAI_API_KEY` variable
-- Optionally add your Groq API key to the `GROQ_API_KEY` variable
-- Update database configuration if needed
-
-4. Start the development environment:
-```bash
-npm run dev
-```
-
-**Note:** The AI assistant user will be automatically created when the server starts. If you need to manually initialize it, you can run:
-```bash
-cd packages/backend
-npm run init-ai-user
+docker-compose down
 ```
 
 ## Development
 
-### Available Scripts
+### Development Mode (with hot reload)
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
 
-- `npm run dev` - Start all packages in development mode
-- `npm run build` - Build all packages
-- `npm run test` - Run tests across all packages
-- `npm run clean` - Clean build artifacts
+### View Logs
+```bash
+docker-compose logs -f backend    # Backend logs
+docker-compose logs -f frontend   # Frontend logs
+```
 
-### Package-specific Scripts
+### Rebuild Containers
+```bash
+docker-compose build --no-cache
+docker-compose up -d
+```
 
-#### Frontend
-- `npm run start:frontend` - Start frontend development server
-- `npm run build:frontend` - Build frontend package
+## Project Structure
 
-#### Backend
-- `npm run start:backend` - Start backend development server
-- `npm run build:backend` - Build backend package
+```
+movie-recommendation/
+├── packages/
+│   ├── frontend/              # React app
+│   │   ├── src/
+│   │   │   ├── components/    # React components
+│   │   │   ├── services/      # API & Socket services
+│   │   │   └── hooks/         # Custom React hooks
+│   │   └── nginx.conf         # nginx configuration
+│   └── backend/               # Node.js API
+│       ├── src/
+│       │   ├── entities/      # Database entities
+│       │   ├── services/      # Business logic
+│       │   ├── routes/        # API routes
+│       │   └── socket/        # Socket.IO handlers
+│       └── Dockerfile
+├── docker-compose.yml         # Production setup
+├── docker-compose.dev.yml     # Development setup
+└── DOCKER.md                  # Detailed Docker instructions
+```
 
-### Docker Commands
-
-#### Production
-- `npm run docker:up` - Start all services in production mode
-- `npm run docker:down` - Stop and remove all containers
-- `npm run docker:logs` - View container logs
-- `npm run docker:build` - Rebuild and start containers
-
-#### Development
-- `npm run docker:dev` - Start all services in development mode with hot reload
-- `npm run docker:dev:down` - Stop development containers
-- `npm run docker:dev:logs` - View development container logs
-
-## Features
-
-### Chat System
-- **Real-time messaging** with Socket.IO
-- **AI-powered movie recommendations** using OpenAI GPT-3.5 and Groq
-- **Multi-room chat support**
-- **Message persistence** with PostgreSQL
-- **RESTful API** for chat operations
-- **Configurable AI services** with fallback support
+## API Endpoints
 
 ### User Management
-- **Comprehensive user creation** with real-time validation
-- **Username availability checking** with debounced API calls
-- **Professional UX** with loading states and error handling
-- **Client & server-side validation** for data integrity
-- **User account management** with soft delete support
+- `POST /api/users` - Create user
+- `GET /api/users/check/username/:username` - Check availability
 
-### API Endpoints
+### Chat
+- `GET /api/users/:userId/rooms` - Get user's rooms
+- `POST /api/rooms` - Create room
 
-#### Chat API (`/api/chat`)
-- `GET /rooms/:userId` - Get user's chat rooms
-- `POST /rooms` - Create new chat room
-- `GET /rooms/:roomId/messages` - Get room messages
+### Health
+- `GET /health` - Service health check
+- `GET /api/ai-status` - AI service status
 
-#### User Management API (`/api/users`)
-- `POST /` - Create a new user
-- `GET /:id` - Get user by ID
-- `PUT /:id` - Update user information
-- `DELETE /:id` - Deactivate user (soft delete)
-- `POST /:id/reactivate` - Reactivate user
-- `GET /` - Get all users with pagination
-- `GET /username/:username` - Get user by username
-- `GET /email/:email` - Get user by email
-- `GET /check/username/:username` - Check username availability
-- `GET /check/email/:email` - Check email availability
+## Socket.IO Events
 
-#### AI Status API
-- `GET /api/ai-status` - Get overall AI service status
-- `GET /api/openai-status` - Get OpenAI service status and API key validation
-
-### WebSocket Events
-
-#### Client to Server
-- `join_room` - Join a chat room
-- `leave_room` - Leave a chat room
-- `send_message` - Send a message
+### Client → Server
+- `join_room` - Join chat room
+- `send_message` - Send message
 - `create_room` - Create new room
-- `get_rooms` - Get user rooms
-- `get_messages` - Get room messages
 
-#### Server to Client
+### Server → Client
 - `room_joined` - Room join confirmation
-- `new_message` - New user message
+- `new_message` - User message
 - `ai_message` - AI response
 - `room_created` - Room creation confirmation
-- `error` - Error notifications
 
-## Contributing
+## Getting API Keys
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. **Groq API** (Primary AI provider)
+   - Sign up at [console.groq.com](https://console.groq.com)
+   - Create API key
+
+2. **OpenAI API** (Fallback)
+   - Sign up at [platform.openai.com](https://platform.openai.com)
+   - Create API key
+
+3. **TMDB API** (Movie data)
+   - Sign up at [themoviedb.org](https://www.themoviedb.org/settings/api)
+   - Get API key
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Frontend can't connect to backend**
+   - Check if all containers are running: `docker-compose ps`
+   - Verify nginx proxy configuration in `packages/frontend/nginx.conf`
+
+2. **Database connection failed**
+   - Ensure PostgreSQL container is healthy: `docker-compose logs postgres`
+   - Check database environment variables
+
+3. **AI responses not working**
+   - Verify API keys in `.env` file
+   - Check AI service status: http://localhost:3000/api/ai-status
+
+### Logs
+```bash
+# View all logs
+docker-compose logs
+
+# View specific service logs
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs postgres
+```
+
+For detailed Docker instructions and troubleshooting, see [DOCKER.md](DOCKER.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contact
-
-[Add contact information here]
-
-## Acknowledgments
-
-- TMDB API for movie data
-- OpenAI for AI capabilities 
+MIT License 
