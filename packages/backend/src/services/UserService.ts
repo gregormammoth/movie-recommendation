@@ -3,6 +3,7 @@ import { AppDataSource } from '../index';
 import { User } from '../entities/User';
 
 export interface CreateUserRequest {
+  id?: string; // Optional custom ID - if not provided, will be auto-generated
   username: string;
   email?: string;
 }
@@ -71,6 +72,7 @@ export class UserService {
    */
   private sanitizeUserData(data: CreateUserRequest): CreateUserRequest {
     return {
+      id: data.id?.trim(), // Keep ID as-is if provided
       username: data.username?.trim().toLowerCase(),
       email: data.email?.trim().toLowerCase(),
     };
@@ -106,6 +108,19 @@ export class UserService {
 
       const userRepo = this.getUserRepository();
 
+      // Check if custom ID already exists (if provided)
+      if (sanitizedData.id) {
+        const existingUserById = await userRepo.findOne({ 
+          where: { id: sanitizedData.id } 
+        });
+        if (existingUserById) {
+          return { 
+            success: false, 
+            errors: [{ field: 'id', message: 'User ID already exists' }] 
+          };
+        }
+      }
+
       // Check if username already exists
       const existingUserByUsername = await userRepo.findOne({ 
         where: { username: sanitizedData.username } 
@@ -132,6 +147,7 @@ export class UserService {
 
       // Create new user
       const user = userRepo.create({
+        ...(sanitizedData.id && { id: sanitizedData.id }), // Use custom ID if provided
         username: sanitizedData.username,
         email: sanitizedData.email,
       });

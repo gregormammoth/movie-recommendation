@@ -1,4 +1,5 @@
 interface CreateUserRequest {
+  id?: string; // Optional custom ID - if not provided, will be auto-generated
   username: string;
   email?: string;
 }

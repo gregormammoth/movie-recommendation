@@ -12,10 +12,10 @@ const getUserService = () => new UserService();
  */
 router.post('/', async (req, res) => {
   try {
-    const { username, email }: CreateUserRequest = req.body;
+    const { id, username, email }: CreateUserRequest = req.body;
     
     const userService = getUserService();
-    const result = await userService.createUser({ username, email });
+    const result = await userService.createUser({ id, username, email });
     
     if (result.success) {
       res.status(201).json({

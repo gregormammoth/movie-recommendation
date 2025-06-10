@@ -151,17 +151,17 @@ The system handles multiple types of errors:
 ## User Data Storage
 
 Upon successful user creation:
-```typescript
-// Store user data in localStorage
-localStorage.setItem('userId', result.data.id);
-localStorage.setItem('username', result.data.username);
-```
-
-The system maintains both:
-- `currentUserId`: Frontend-generated UUID for socket compatibility
-- `userId`: Server-generated UUID from user creation API
-
-This dual approach ensures backward compatibility while integrating with the new user management system.
+  ```typescript
+  // Store user data in localStorage
+  localStorage.setItem('username', result.data.username);
+  // Note: User ID is already stored in currentUserId state and localStorage
+  ```
+  
+  The system now uses a single unified ID:
+  - `userId`: Frontend-generated UUID that is passed to the backend during user creation
+  - `currentUserId`: State variable that holds the same UUID used for both socket operations and API calls
+  
+  This simplified approach ensures consistency across frontend and backend while maintaining socket compatibility.
 
 ## Benefits
 

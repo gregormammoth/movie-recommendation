@@ -65,7 +65,16 @@ const theme = createTheme({
 const DRAWER_WIDTH = 300;
 
 function App() {
-  const [currentUserId] = useState(() => localStorage.getItem('userId') || uuidv4());
+  // Generate UUID that will be used for both frontend and backend
+  const [currentUserId] = useState(() => {
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+      userId = uuidv4();
+      localStorage.setItem('userId', userId);
+    }
+    return userId;
+  });
+  
   const [username, setUsername] = useState(() => localStorage.getItem('username') || '');
   const [rooms, setRooms] = useState<ChatRoomType[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoomType | null>(null);
@@ -73,6 +82,7 @@ function App() {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDescription, setNewRoomDescription] = useState('');
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isUsernameDialogOpen, setIsUsernameDialogOpen] = useState(!username);
   
   // User creation states
@@ -101,9 +111,11 @@ function App() {
   useEffect(() => {
     if (!username) return;
 
+    console.log('Connecting socket with userId:', currentUserId);
     const socket = socketService.connect(currentUserId);
 
     socketService.onRoomsList((roomsList) => {
+      console.log('Received rooms list:', roomsList);
       setRooms(roomsList);
       // Select first room if none selected
       if (roomsList.length > 0 && !selectedRoom) {
@@ -112,6 +124,7 @@ function App() {
     });
 
     socketService.onRoomCreated((roomData) => {
+      console.log('Room created successfully:', roomData);
       const newRoom: ChatRoomType = {
         id: roomData.id,
         name: roomData.name,
@@ -125,6 +138,14 @@ function App() {
       setIsCreateRoomOpen(false);
       setNewRoomName('');
       setNewRoomDescription('');
+      setIsCreatingRoom(false);
+    });
+
+    // Handle socket errors
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+      setIsCreatingRoom(false); // Reset room creation state on error
+      // You could add a toast notification here
     });
 
     // Load existing rooms
@@ -149,8 +170,9 @@ function App() {
     setIsCreatingUser(true);
 
     try {
-      // Try to create the user
+      // Try to create the user with the current frontend UUID
       const result = await userService.createUser({
+        id: currentUserId, // Use the same ID for both frontend and backend
         username: username.trim(),
       });
 
@@ -159,8 +181,7 @@ function App() {
         console.log('User created successfully:', result.data);
         setShowSuccessMessage(true);
         
-        // Store the backend user ID (keeping the existing currentUserId for socket compatibility)
-        localStorage.setItem('userId', result.data.id);
+        // Store user info (ID is already stored in currentUserId state)
         localStorage.setItem('username', result.data.username);
         
         // Close dialog after a brief success message
@@ -193,7 +214,21 @@ function App() {
 
   const handleCreateRoom = () => {
     if (newRoomName.trim()) {
+      console.log('Creating room:', {
+        name: newRoomName.trim(),
+        description: newRoomDescription.trim() || undefined,
+        userId: currentUserId
+      });
+      setIsCreatingRoom(true);
       socketService.createRoom(newRoomName.trim(), newRoomDescription.trim() || undefined);
+      
+      // Set a timeout in case room creation fails
+      setTimeout(() => {
+        if (isCreatingRoom) {
+          console.warn('Room creation timeout');
+          setIsCreatingRoom(false);
+        }
+      }, 10000); // 10 second timeout
     }
   };
 
@@ -489,15 +524,24 @@ function App() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsCreateRoomOpen(false)}>
+          <Button 
+            onClick={() => {
+              setIsCreateRoomOpen(false);
+              setNewRoomName('');
+              setNewRoomDescription('');
+              setIsCreatingRoom(false);
+            }}
+            disabled={isCreatingRoom}
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleCreateRoom}
             variant="contained"
-            disabled={!newRoomName.trim()}
+            disabled={!newRoomName.trim() || isCreatingRoom}
+            startIcon={isCreatingRoom ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            Create Room
+            {isCreatingRoom ? 'Creating...' : 'Create Room'}
           </Button>
         </DialogActions>
       </Dialog>
