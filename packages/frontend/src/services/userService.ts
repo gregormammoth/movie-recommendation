@@ -38,7 +38,12 @@ class UserService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    // In Docker, nginx proxies API requests, so we use the same origin
+    // In development, we connect directly to the backend
+    const isProduction = window.location.hostname !== 'localhost' || window.location.port === '3000';
+    this.baseUrl = isProduction 
+      ? window.location.origin  // Use same origin when running through nginx proxy
+      : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
   }
 
   /**

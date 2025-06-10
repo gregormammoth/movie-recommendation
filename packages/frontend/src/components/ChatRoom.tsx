@@ -20,6 +20,8 @@ interface ChatRoomProps {
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
+  console.log('ChatRoom: room', room);
+  console.log('ChatRoom: currentUserId', currentUserId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,32 +39,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
 
   useEffect(() => {
     // Connect to socket
+    console.log('ChatRoom: connecting to socket');
     const socket = socketService.connect(currentUserId);
-    
-    // Set up event listeners
-    socketService.onRoomJoined(() => {
-      setIsConnected(true);
-      setIsLoading(false);
-      socketService.getMessages(room.id);
-    });
-
-    socketService.onMessagesList((messagesList) => {
-      setMessages(messagesList);
-      setIsLoading(false);
-    });
-
-    socketService.onNewMessage((message) => {
-      setMessages(prev => [...prev, message]);
-      if (message.type === 'user' && message.userId !== currentUserId) {
-        // Show AI typing indicator when receiving a user message from others
-        setIsAITyping(true);
-      }
-    });
-
-    socketService.onAIMessage((message) => {
-      setIsAITyping(false);
-      setMessages(prev => [...prev, message]);
-    });
 
     socket.on('error', (data) => {
       setError(data.message);
@@ -70,7 +48,36 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
     });
 
     socket.on('connect', () => {
+    
+      // Set up event listeners
+      socketService.onRoomJoined((data) => {
+        console.log('ChatRoom: received room_joined for room:', data.roomId);
+        setIsConnected(true);
+        setIsLoading(false);
+        console.log('ChatRoom: calling getMessages for room:', room.id);
+        socketService.getMessages(room.id);
+      });
+  
+      socketService.onMessagesList((messagesList) => {
+        console.log('ChatRoom: received messages_list with', messagesList.length, 'messages');
+        setMessages(messagesList);
+        setIsLoading(false);
+      });
+  
+      socketService.onNewMessage((message) => {
+        setMessages(prev => [...prev, message]);
+        if (message.type === 'user' && message.userId !== currentUserId) {
+          // Show AI typing indicator when receiving a user message from others
+          setIsAITyping(true);
+        }
+      });
+  
+      socketService.onAIMessage((message) => {
+        setIsAITyping(false);
+        setMessages(prev => [...prev, message]);
+      });
       setIsConnected(true);
+      console.log('ChatRoom: Socket connected, joining room and getting messages');
       socketService.joinRoom(room.id);
     });
 
@@ -78,9 +85,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
       setIsConnected(false);
     });
 
-    // Join the room
+    // Initial setup - join room and get messages
     if (socket.connected) {
+      console.log('ChatRoom: Socket already connected, joining room and getting messages');
       socketService.joinRoom(room.id);
+      // Get messages immediately to handle race condition
+      // socketService.getMessages(room.id);
     }
 
     return () => {
@@ -99,20 +109,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
     setIsAITyping(true); // Show AI typing indicator
   };
 
-  if (isLoading) {
-    return (
-      <Box 
-        sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <Box 
+  //       sx={{ 
+  //         height: '100%', 
+  //         display: 'flex', 
+  //         alignItems: 'center', 
+  //         justifyContent: 'center' 
+  //       }}
+  //     >
+  //       <CircularProgress />
+  //     </Box>
+  //   );
+  // }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

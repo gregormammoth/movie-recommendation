@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { ChatService } from '../services/ChatService';
+import { UserService } from '../services/UserService';
 import { MessageType } from '../entities/Message';
 
 interface ClientToServerEvents {
@@ -54,15 +55,22 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
     socket.on('join_room', async (data) => {
       try {
         const { roomId, userId } = data;
+        console.log(`join_room event received:`, { roomId, userId });
         socket.join(roomId);
         socket.data.userId = userId;
         
-        // Get user info and store username
-        const user = await chatService.createUser(`user_${userId}`);
-        socket.data.username = user.username;
+        // Get user info using the UserService instead of creating with prefixed username
+        const userService = new UserService();
+        const user = await userService.getUserById(userId);
         
-        socket.emit('room_joined', { roomId });
-        console.log(`User ${userId} joined room ${roomId}`);
+        if (user) {
+          socket.data.username = user.username;
+          console.log(`Emitting room_joined event for room ${roomId}`);
+          socket.emit('room_joined', { roomId });
+          console.log(`User ${userId} (${user.username}) joined room ${roomId}`);
+        } else {
+          socket.emit('error', { message: 'User not found' });
+        }
       } catch (error) {
         console.error('Error joining room:', error);
         socket.emit('error', { message: 'Failed to join room' });
@@ -81,10 +89,19 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
     socket.on('send_message', async (data) => {
       try {
         const { roomId, userId, content } = data;
+        console.log(`send_message event received:`, { roomId, userId, content });
+        
+        // Get user info using the UserService
+        const userService = new UserService();
+        const user = await userService.getUserById(userId);
+        
+        if (!user) {
+          socket.emit('error', { message: 'User not found' });
+          return;
+        }
         
         // Save user message
         const userMessage = await chatService.saveMessage(userId, roomId, content, MessageType.USER);
-        const user = await chatService.createUser(`user_${userId}`);
         
         // Emit user message to room
         io.to(roomId).emit('new_message', {
@@ -165,16 +182,21 @@ export function setupSocketHandlers(io: Server<ClientToServerEvents, ServerToCli
     socket.on('get_messages', async (data) => {
       try {
         const { roomId } = data;
+        console.log(`get_messages event received:`, { roomId });
         const messages = await chatService.getChatRoomMessages(roomId);
+        console.log(`Retrieved ${messages.length} messages for room ${roomId}`);
         
-        socket.emit('messages_list', messages.map(message => ({
+        const messagesList = messages.map(message => ({
           id: message.id,
           content: message.content,
           type: message.type,
           userId: message.userId,
           username: message.user?.username || (message.type === MessageType.AI ? 'AI Assistant' : 'Unknown User'),
           createdAt: message.createdAt.toISOString(),
-        })));
+        }));
+        
+        socket.emit('messages_list', messagesList);
+        console.log(`Emitted messages_list with ${messagesList.length} messages`);
       } catch (error) {
         console.error('Error getting messages:', error);
         socket.emit('error', { message: 'Failed to get messages' });

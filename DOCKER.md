@@ -162,7 +162,11 @@ The application includes health checks for monitoring:
    - Wait for PostgreSQL to fully start (health check)
    - Backend uses `DB_HOST=postgres` to connect to the database container
    - If you see "ECONNREFUSED 127.0.0.1:5432", the backend is trying to connect to localhost instead of the postgres container
-4. **Build failures**: If you encounter npm errors, ensure you have the latest Docker images by running `docker-compose build --no-cache`
+4. **Frontend connection issues**:
+   - Frontend automatically detects if running in Docker (port 3000) vs development (other ports)
+   - In Docker, nginx proxies API calls (`/api/`) and Socket.IO (`/socket.io/`) to the backend container
+   - Frontend uses `window.location.origin` in Docker, direct backend URL in development
+  5. **Build failures**: If you encounter npm errors, ensure you have the latest Docker images by running `docker-compose build --no-cache`
 
 ### Logs
 

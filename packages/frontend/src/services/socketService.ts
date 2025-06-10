@@ -43,7 +43,14 @@ class SocketService {
   private currentUserId: string | null = null;
 
   connect(userId: string): Socket<ServerToClientEvents, ClientToServerEvents> {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    // In Docker, nginx proxies Socket.IO requests, so we connect to the same origin
+    // In development, we connect directly to the backend
+    const isProduction = window.location.hostname !== 'localhost' || window.location.port === '3000';
+    const backendUrl = isProduction 
+      ? window.location.origin  // Use same origin when running through nginx proxy
+      : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
+    
+    console.log('Connecting to Socket.IO at:', backendUrl, 'isProduction:', isProduction);
     
     this.socket = io(backendUrl, {
       transports: ['websocket', 'polling'],
@@ -75,6 +82,7 @@ class SocketService {
   }
 
   joinRoom(roomId: string): void {
+    console.log('Frontend joinRoom', this.socket);
     if (this.socket && this.currentUserId) {
       this.socket.emit('join_room', { roomId, userId: this.currentUserId });
     }
@@ -106,6 +114,7 @@ class SocketService {
 
   getMessages(roomId: string): void {
     if (this.socket) {
+      console.log('Frontend emitting get_messages event for room:', roomId);
       this.socket.emit('get_messages', { roomId });
     }
   }
@@ -123,8 +132,12 @@ class SocketService {
   }
 
   onRoomJoined(callback: (data: { roomId: string }) => void): void {
+    console.log('Frontend onRoomJoined', !!this.socket);
     if (this.socket) {
-      this.socket.on('room_joined', callback);
+      this.socket.on('room_joined', (data) => {
+        console.log('Frontend received room_joined event:', data);
+        callback(data);
+      });
     }
   }
 
@@ -142,7 +155,10 @@ class SocketService {
 
   onMessagesList(callback: (messages: Message[]) => void): void {
     if (this.socket) {
-      this.socket.on('messages_list', callback);
+      this.socket.on('messages_list', (messages) => {
+        console.log('Frontend received messages_list event:', messages.length, 'messages');
+        callback(messages);
+      });
     }
   }
 
