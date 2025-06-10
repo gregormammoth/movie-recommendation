@@ -37,10 +37,33 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    // Connect to socket
-    console.log('ChatRoom: connecting to socket');
+    useEffect(() => {
     const socket = socketService.connect(currentUserId);
+
+    const setupEventListeners = () => {
+      socketService.onRoomJoined(() => {
+        setIsConnected(true);
+        setIsLoading(false);
+        socketService.getMessages(room.id);
+      });
+
+      socketService.onMessagesList((messagesList) => {
+        setMessages(messagesList);
+        setIsLoading(false);
+      });
+
+      socketService.onNewMessage((message) => {
+        setMessages(prev => [...prev, message]);
+        if (message.type === 'user' && message.userId !== currentUserId) {
+          setIsAITyping(true);
+        }
+      });
+
+      socketService.onAIMessage((message) => {
+        setIsAITyping(false);
+        setMessages(prev => [...prev, message]);
+      });
+    };
 
     socket.on('error', (data) => {
       setError(data.message);
@@ -48,36 +71,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
     });
 
     socket.on('connect', () => {
-    
-      // Set up event listeners
-      socketService.onRoomJoined((data) => {
-        console.log('ChatRoom: received room_joined for room:', data.roomId);
-        setIsConnected(true);
-        setIsLoading(false);
-        console.log('ChatRoom: calling getMessages for room:', room.id);
-        socketService.getMessages(room.id);
-      });
-  
-      socketService.onMessagesList((messagesList) => {
-        console.log('ChatRoom: received messages_list with', messagesList.length, 'messages');
-        setMessages(messagesList);
-        setIsLoading(false);
-      });
-  
-      socketService.onNewMessage((message) => {
-        setMessages(prev => [...prev, message]);
-        if (message.type === 'user' && message.userId !== currentUserId) {
-          // Show AI typing indicator when receiving a user message from others
-          setIsAITyping(true);
-        }
-      });
-  
-      socketService.onAIMessage((message) => {
-        setIsAITyping(false);
-        setMessages(prev => [...prev, message]);
-      });
+      setupEventListeners();
       setIsConnected(true);
-      console.log('ChatRoom: Socket connected, joining room and getting messages');
       socketService.joinRoom(room.id);
     });
 
@@ -85,12 +80,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
       setIsConnected(false);
     });
 
-    // Initial setup - join room and get messages
     if (socket.connected) {
-      console.log('ChatRoom: Socket already connected, joining room and getting messages');
+      setupEventListeners();
+      setIsConnected(true);
       socketService.joinRoom(room.id);
-      // Get messages immediately to handle race condition
-      // socketService.getMessages(room.id);
     }
 
     return () => {
@@ -109,20 +102,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ room, currentUserId }) => {
     setIsAITyping(true); // Show AI typing indicator
   };
 
-  // if (isLoading) {
-  //   return (
-  //     <Box 
-  //       sx={{ 
-  //         height: '100%', 
-  //         display: 'flex', 
-  //         alignItems: 'center', 
-  //         justifyContent: 'center' 
-  //       }}
-  //     >
-  //       <CircularProgress />
-  //     </Box>
-  //   );
-  // }
+  if (isLoading) {
+    return (
+      <Box 
+        sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

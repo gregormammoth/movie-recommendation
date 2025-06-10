@@ -28,7 +28,7 @@ export class LangchainAIService {
     });
     
     this.outputParser = new StringOutputParser();
-    this.tmdbAccessToken = process.env.TMDB_ACESS_TOKEN || '';
+    this.tmdbAccessToken = process.env.TMDB_ACCESS_TOKEN || '';
   }
 
   private async extractSearchParams(userMessage: string): Promise<SearchMoviesParams> {
